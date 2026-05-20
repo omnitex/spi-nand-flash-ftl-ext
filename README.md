@@ -10,22 +10,19 @@ Extensions to the [Espressif `spi_nand_flash`](https://github.com/espressif/idf-
 
 The `DIP` branch extends the upstream `spi_nand_flash` component with:
 
-### NAND Fault Simulator
-A configurable fault-injection layer (`nand_fault_sim`) that replaces the Linux mmap emulation at link time. Supports:
-- Factory bad blocks
-- Erase/program wear-out tracking
-- Retention failure simulation
-- Probabilistic per-operation failures
-- Power-loss crash with torn writes
-- ECC read-disturb simulation
+### Improved power-loss recovery via orphan page replay 
+By storing Logical Page Number (LPN) of each page in its out-of-band (OOB) area, mapping layer information is now durable with each page write, compared to previously only on page group sized checkpoint intervals.
 
-### L1 Page-Register Cache
+### NAND Fault Simulator
+A configurable fault-injection layer (`nand_fault_sim`) that replaces the Linux mmap emulation at link time.
+
+### Page-Register Cache
 Tracks which page is currently loaded in the NAND chip's internal data register. Skips redundant `READ PAGE` commands (~25-100 us) on back-to-back reads of the same page. Reset automatically after every program or erase. Toggle via `CONFIG_NAND_PAGE_REGISTER_CACHE`.
 
-### L2 Metadata Cache
+### Metadata Cache
 DRAM-resident cache for Dhara metadata pages (`CONFIG_DHARA_META_CACHE_SLOTS`, 0-8 slots). Avoids re-reading metadata that the wear-leveling layer accesses repeatedly.
 
-### L3 Map-Path Cache
+### Map-Path Cache
 Caches the Dhara radix-tree traversal path for sequential sector lookups (`CONFIG_DHARA_MAP_PATH_CACHE`). Eliminates most per-sector metadata reads during sequential workloads. 136 bytes static RAM.
 
 ### Program Page Relief
@@ -81,9 +78,7 @@ Application / FS
 
 ### Prerequisites
 
-- ESP-IDF v5.x or v6.x ([installation guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/))
-- Python 3.10+ (for visualization scripts)
-- For host tests: Linux with ESP-IDF Linux target support
+- ESP-IDF v6.x ([installation guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/))
 
 ### Clone and Build
 
@@ -94,7 +89,9 @@ cd spi-nand-flash-ftl-ext
 
 # 2. Run setup (clones the fork, builds ftl_eval and perf_app)
 ./setup.sh
+```
 
+```
 # Or build manually:
 git clone -b DIP https://github.com/omnitex/idf-extra-components.git
 cd idf-extra-components/spi_nand_flash/ftl_eval
@@ -108,13 +105,10 @@ idf.py build
 cd idf-extra-components/spi_nand_flash/ftl_eval
 
 # Run a single sweep config
-make run CONFIG=zipf_skew_1.0
-
-# Batch sweep (all configs)
-make runall
+make run CONFIG=gc_vs_wear_sequential_monotonic
 
 # Visualize results
-python3 ftl_viz.py results/
+python3 ftl_viz.py --no-tex
 ```
 
 ### Run Host Tests
